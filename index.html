@@ -40,7 +40,42 @@ async function login() {
   }
 }
 
+
 async function markAttendance() {
+
+  const video = document.createElement("video");
+  const canvas = document.createElement("canvas");
+
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  video.srcObject = stream;
+  await video.play();
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+
+  stream.getTracks().forEach(track => track.stop());
+
+  const blob = await new Promise(resolve => 
+    canvas.toBlob(resolve, "image/jpeg")
+  );
+
+  const fileName = `photo_${Date.now()}.jpg`;
+
+  const { data: uploadData, error: uploadError } =
+    await supabase.storage
+      .from("attendance-photos")
+      .upload(fileName, blob);
+
+  if (uploadError) {
+    alert("Photo upload failed");
+    return;
+  }
+
+  const { data: publicUrl } =
+    supabase.storage
+      .from("attendance-photos")
+      .getPublicUrl(fileName);
 
   navigator.geolocation.getCurrentPosition(async (position) => {
 
@@ -54,14 +89,15 @@ async function markAttendance() {
       {
         user_id: userId,
         latitude: latitude,
-        longitude: longitude
+        longitude: longitude,
+        photo_url: publicUrl.publicUrl
       }
     ]);
 
     if (error) {
       alert("Error saving attendance");
     } else {
-      alert("Attendance Marked Successfully");
+      alert("Attendance Marked with Photo");
     }
 
   });
